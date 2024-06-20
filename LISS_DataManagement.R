@@ -846,3 +846,24 @@ Complete_15Waves<-Complete_15Waves %>%
 Complete_15Waves$EduGroup<-factor(Complete_15Waves$EduGroup, levels = c("lowEdu", "MidEdu","HighEdu"))
 
 rm(list=c("Prej_CFA","Prej_CFA_model"))
+
+##Lastly, we need to try to get rid of those who only has 1 round data:
+##Find out who has participated for more than two rounds
+Participation<-Complete_15Waves %>%
+        group_by(IndividualID) %>%
+        summarise(count=n()) %>%
+        arrange(-count)
+
+
+##We will keep those who participated in at least two rounds:
+Participation<-Participation %>%
+        filter(count>=2)
+
+Complete_15Waves<-merge(Complete_15Waves, Participation,
+                        by.x = "IndividualID",
+                        by.y="IndividualID")
+rm(list=c("Participation"))
+
+Complete_15Waves<-Complete_15Waves %>%
+        dplyr::select(-count) %>%
+        arrange(IndividualID, wave)
