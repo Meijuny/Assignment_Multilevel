@@ -41,12 +41,15 @@ summary(ChildrenANOVA)
 #Prejudice & relationship satisfaction
 cor.test(Complete_15Waves$PrejWorkMumStand, Complete_15Waves$SatisfactionRelationship, method="pearson")
 ##0.005, not significant
+cor.test(Complete_15Waves$PrejWorkMumStand, Complete_15Waves$urbanization, method="pearson")
+cor.test(Complete_15Waves$SatisfactionRelationship, Complete_15Waves$urbanization, method="pearson")
+
 
 #Prejudice against working mother and control variable:
 #
 #Prejudice & Age Group:
-tapply(Complete_15Waves$PrejWorkMumStand, Complete_15Waves$AgeGroup, mean)
-AgeGroupANOVA<-aov(PrejWorkMumStand~AgeGroup, data = Complete_15Waves)
+tapply(Complete_15Waves$PrejWorkMumStand, Complete_15Waves$AgeGroupCat, mean)
+AgeGroupANOVA<-aov(PrejWorkMumStand~AgeGroupCat, data = Complete_15Waves)
 summary(AgeGroupANOVA)
 ##significantly differ across age group
 #
@@ -72,6 +75,11 @@ EduANOVA<-aov(PrejWorkMumStand~factor(EduGroup), data = Complete_15Waves)
 summary(EduANOVA)
 #low edu: 0.348 VS. mid edu: 0.013 VS. high edu: -0.297 --> significantly different
 
+##Kendall's tau b for income, education, and age group:
+cor.test(Complete_15Waves$AgeGroup, Complete_15Waves$IncomeGroup, method="kendall")
+cor.test(as.numeric(Complete_15Waves$AgeGroup), as.numeric(Complete_15Waves$EduGroup), method="kendall")
+cor.test(as.numeric(Complete_15Waves$EduGroup), as.numeric(Complete_15Waves$IncomeGroup), method="kendall")
+
 ####--------------------------------------------------------------------------------------------------------
 ####--------------------------------------------------------------------------------------------------------
 ##multilevel model
@@ -83,8 +91,8 @@ summary(EduANOVA)
 MLM_empty<-lmer(formula = PrejWorkMumStand~1+(1|IndividualID),
                 data = Complete_15Waves)
 summary(MLM_empty)
-0.7270/(0.7270+0.2752)
-#ICC=72.54%
+0.7260/(0.7260+0.2752)
+#ICC=72.51%
 #
 #Likelihood ratio test:
 OLS_empty<-lm(formula = PrejWorkMumStand~1,
@@ -212,6 +220,29 @@ Complete_15Waves_TimeDummies$pred<-predict(PrejModel_TimeSQ)
 ggplot(data = Complete_15Waves_TimeDummies)+
         geom_line(aes(x=time, y=pred, group=IndividualID))+
         geom_line(data = Complete_15Waves_TimeDummies, aes(x=time, y=AvePred),color="red", linewidth=1.5)
+#
+#Select the people who participate in all 15 rounds for the plotting
+participation<-Complete_15Waves_TimeDummies %>%
+        group_by(IndividualID) %>%
+        summarise(count=n())
+participation<-participation %>%
+        filter(count==15)
+Complete_15Waves_TimeDummies<-merge(Complete_15Waves_TimeDummies, participation,
+                                    by.x = "IndividualID",
+                                    by.y = "IndividualID")
+#plot the people who participate in 15 waves:
+ggplot(data = Complete_15Waves_TimeDummies)+
+        geom_line(aes(x=time, y=pred, group=IndividualID))+
+        geom_line(data = Complete_15Waves_TimeDummies, aes(x=time, y=AvePred),color="red", linewidth=1.5)
+#
+#Select only 100 people:
+Complete_15Waves_TimeDummies<-Complete_15Waves_TimeDummies[1:1500,]
+#plot only 100 people who participate in 15 waves:
+ggplot(data = Complete_15Waves_TimeDummies)+
+        geom_line(aes(x=time, y=pred, group=IndividualID, color=IndividualID))+
+        geom_line(data = Complete_15Waves_TimeDummies, aes(x=time, y=AvePred),color="red", linewidth=1.5)+
+        xlab("time point")+ylab("predicted prejudice against working mother")+
+        labs(legend=FALSE)
 #
 ##For the main text
 ggplot(data = Complete_15Waves_TimeDummies, aes(x=time, y=AvePred))+
@@ -370,7 +401,7 @@ Prej_M3_MarriedDMInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
                                  Satisfaction_dm+Satisfaction_mean+
                                  AgeGroupCat+male+male*Married_dm+
                                  urbanization+NewIncomeGroup+EduGroup+
-                                 (1|IndividualID),
+                                 (1+Married_dm|IndividualID),
                          data = Complete_15Waves)
 summary(Prej_M3_MarriedDMInt)
 #Not significant
@@ -386,16 +417,16 @@ Prej_M3_ChildInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
 summary(Prej_M3_ChildInt)
 #The negative between-effect of having children is stronger among males
 #
-##Interaction:Male with WithChildren_mean
+##Interaction:Male with WithChildren_dm
 Prej_M3_ChildDMInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
                                WithChildren_dm+WithChildren_mean+
                                Satisfaction_dm+Satisfaction_mean+
                                AgeGroupCat+male+male*WithChildren_dm+
                                urbanization+NewIncomeGroup+EduGroup+
-                               (1|IndividualID),
+                               (1+WithChildren_dm|IndividualID),
                        data = Complete_15Waves)
 summary(Prej_M3_ChildDMInt)
-#Not significant
+f#Not significant
 #
 #Interaction: Male with Satisfaction_mean:
 Prej_M3_SatisInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
@@ -414,10 +445,122 @@ Prej_M3_SatisDMInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
                                Satisfaction_dm+Satisfaction_mean+
                                AgeGroupCat+male+male*Satisfaction_dm+
                                urbanization+NewIncomeGroup+EduGroup+
-                               (1|IndividualID),
+                               (1+Satisfaction_dm|IndividualID),
                        data = Complete_15Waves)
 summary(Prej_M3_SatisDMInt)
 ##Not significant
 
 ##Results of the significant results model
 screenreg(list(Prej_M0, Prej_M1, Prej_M2, Prej_M3_ChildInt, Prej_M3_SatisInt), digits = 5)
+
+
+###-----------------------------------------------------
+##To confirm that the control is really explaining away some variances of 
+#the effect of three dm variable:
+#We make random slope for without control and with control
+#Random slope testing:Married_dm without control
+Prej_MarriedDMSlope_NoCon<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                     WithChildren_dm+WithChildren_mean+
+                                     Satisfaction_dm+Satisfaction_mean+
+                                     (1+Married_dm|IndividualID),
+                             data = Complete_15Waves)
+summary(Prej_MarriedDMSlope_NoCon)
+#
+#Random Slope testing: Married_dm with control
+Prej_MarriedDMSlope_Con<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                        WithChildren_dm+WithChildren_mean+
+                                        Satisfaction_dm+Satisfaction_mean+
+                                        AgeGroupCat+male+
+                                        urbanization+NewIncomeGroup+EduGroup+
+                                        (1+Married_dm|IndividualID),
+                                data = Complete_15Waves)
+summary(Prej_MarriedDMSlope_Con)
+#
+#Random Slope testing: Married_dm with control as interaction effect
+Prej_MarriedDMSlope_ConInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                      WithChildren_dm+WithChildren_mean+
+                                      Satisfaction_dm+Satisfaction_mean+
+                                      AgeGroupCat+male+
+                                      urbanization+NewIncomeGroup+EduGroup+
+                                      Married_dm*AgeGroupCat+Married_dm*male+
+                                         Married_dm*urbanization+Married_dm*NewIncomeGroup+
+                                         Married_dm*EduGroup+
+                                      (1+Married_dm|IndividualID),
+                              data = Complete_15Waves)
+summary(Prej_MarriedDMSlope_ConInt)
+#
+screenreg(list(Prej_MarriedDMSlope_NoCon, Prej_MarriedDMSlope_Con), digits=5)
+##Exaplained variance of the random slope: 16.79%
+(0.18363-0.1528)/0.18363
+#
+#
+#Random slope testing:WithChildren_dm without control
+Prej_ChildDMSlope_NoCon<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                        WithChildren_dm+WithChildren_mean+
+                                        Satisfaction_dm+Satisfaction_mean+
+                                        (1+WithChildren_dm|IndividualID),
+                                data = Complete_15Waves)
+summary(Prej_ChildDMSlope_NoCon)
+#
+#Random Slope testing: WithChildren_dm with control
+Prej_ChildDMSlope_Con<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                      WithChildren_dm+WithChildren_mean+
+                                      Satisfaction_dm+Satisfaction_mean+
+                                      AgeGroupCat+male+
+                                      urbanization+NewIncomeGroup+EduGroup+
+                                      (1+WithChildren_dm|IndividualID),
+                              data = Complete_15Waves)
+summary(Prej_ChildDMSlope_Con)
+#
+#Random Slope testing: WithChildren_dm with control and interaction
+Prej_ChildDMSlope_ConInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                    WithChildren_dm+WithChildren_mean+
+                                    Satisfaction_dm+Satisfaction_mean+
+                                    AgeGroupCat+male+
+                                    urbanization+NewIncomeGroup+EduGroup+
+                                       WithChildren_dm*AgeGroupCat+WithChildren_dm*male+
+                                       WithChildren_dm*urbanization+WithChildren_dm*NewIncomeGroup+
+                                       WithChildren_dm*EduGroup+
+                                    (1+WithChildren_dm|IndividualID),
+                            data = Complete_15Waves)
+summary(Prej_ChildDMSlope_ConInt)
+#
+screenreg(list(Prej_ChildDMSlope_NoCon, Prej_ChildDMSlope_Con), digits=5)
+##Exaplained variance of the random slope: 26.21%
+(0.13823-0.10200)/0.13823
+#
+#
+#Random slope testing:Satisfaction_dm without control
+Prej_SatisDMSlope_NoCon<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                      WithChildren_dm+WithChildren_mean+
+                                      Satisfaction_dm+Satisfaction_mean+
+                                      (1+Satisfaction_dm|IndividualID),
+                              data = Complete_15Waves)
+summary(Prej_SatisDMSlope_NoCon)
+#
+#Random Slope testing: Satisfaction_dm with control
+Prej_SatisDMSlope_Con<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                    WithChildren_dm+WithChildren_mean+
+                                    Satisfaction_dm+Satisfaction_mean+
+                                    AgeGroupCat+male+
+                                    urbanization+NewIncomeGroup+EduGroup+
+                                    (1+Satisfaction_dm|IndividualID),
+                            data = Complete_15Waves)
+summary(Prej_SatisDMSlope_Con)
+#
+#Random Slope testing: Satisfaction_dm with control and interaction
+Prej_SatisDMSlope_ConInt<-lmer(formula = PrejWorkMumStand~1+Married_dm+Married_mean+
+                                    WithChildren_dm+WithChildren_mean+
+                                    Satisfaction_dm+Satisfaction_mean+
+                                    AgeGroupCat+male+
+                                    urbanization+NewIncomeGroup+EduGroup+
+                                    Satisfaction_dm*AgeGroupCat+Satisfaction_dm*male+
+                                    Satisfaction_dm*urbanization+Satisfaction_dm*NewIncomeGroup+
+                                    Satisfaction_dm*EduGroup+
+                                    (1+Satisfaction_dm|IndividualID),
+                            data = Complete_15Waves)
+summary(Prej_SatisDMSlope_ConInt)
+#
+screenreg(list(Prej_SatisDMSlope_NoCon, Prej_SatisDMSlope_Con), digits=5)
+##Exaplained variance of the random slope: 14.94%
+(0.01640-0.01395)/0.01640
